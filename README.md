@@ -109,11 +109,19 @@ function renderizarLinks(id,participantes){
 `🎄 Amigo Oculto 🎄
 
 Olá ${p.nome}! ✨
-Que esse Natal seja cheio de alegria e boas surpresas 🎁❤️
+
+Chegou o momento de espalhar alegria, carinho e boas surpresas 🎁❤️  
+Preparamos este amigo oculto com muito cuidado especialmente para você!
 
 🔐 Sua senha: ${p.senha}
-👉 ${link}
 
+Clique no link abaixo para descobrir quem você tirou 🤫👇
+${link}
+
+🎅 Que esse Natal seja cheio de amor, risadas e bons presentes!`;
+
+    const wpp = "https://wa.me/?text=" + encodeURIComponent(mensagem);
+    
 🤫 Guarde segredo!`;
     links.innerHTML+=`
     <div class="link">
