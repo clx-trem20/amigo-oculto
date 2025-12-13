@@ -1,8 +1,7 @@
-<!DOCTYPE html>
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
-<title>Amigo Oculto Seguro</title>
+<title>🎄 Amigo Oculto Seguro</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
@@ -11,7 +10,7 @@
 body {
   margin: 0;
   font-family: "Segoe UI", Arial, sans-serif;
-  background: linear-gradient(135deg, #1d976c, #93f9b9);
+  background: linear-gradient(135deg, #b30000, #0f7a3a);
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -22,19 +21,13 @@ body {
   background: #fff;
   width: 100%;
   max-width: 420px;
-  border-radius: 18px;
+  border-radius: 20px;
   padding: 22px;
-  box-shadow: 0 20px 45px rgba(0,0,0,0.25);
+  box-shadow: 0 20px 45px rgba(0,0,0,0.3);
 }
 
-h2 {
-  text-align: center;
-  margin-bottom: 10px;
-}
-
-p {
-  text-align: center;
-}
+h2 { text-align: center; color: #b30000; }
+p { text-align: center; }
 
 textarea, input {
   width: 100%;
@@ -52,7 +45,7 @@ button {
   font-size: 18px;
   border: none;
   border-radius: 12px;
-  background: #25d366;
+  background: #c62828;
   color: white;
   cursor: pointer;
 }
@@ -64,7 +57,7 @@ button:hover { opacity: 0.9; }
 .link {
   margin-top: 12px;
   padding: 10px;
-  background: #f4f4f4;
+  background: #f7f7f7;
   border-radius: 10px;
   font-size: 14px;
 }
@@ -72,7 +65,7 @@ button:hover { opacity: 0.9; }
 .link a {
   display: inline-block;
   margin-top: 5px;
-  color: #128c7e;
+  color: #0f7a3a;
   font-weight: bold;
   text-decoration: none;
 }
@@ -86,21 +79,22 @@ button:hover { opacity: 0.9; }
 
 <body>
 
-<div class="card">
-  <h2>🎁 Amigo Oculto</h2>
+<div class="card" id="card">
+  <h2>🎄 Amigo Oculto</h2>
 
   <div id="setup">
     <p>Digite um nome por linha:</p>
     <textarea id="nomes" placeholder="João&#10;Maria&#10;Carlos&#10;Ana"></textarea>
-    <button onclick="criarSorteio()">Criar Sorteio Seguro</button>
+    <button onclick="criarSorteio()">🎁 Criar Sorteio</button>
   </div>
 
   <div id="links" class="hidden"></div>
 </div>
 
 <script>
-let sorteio = {};
-
+/* =========================
+   CRIAR SORTEIO
+========================= */
 function criarSorteio() {
   const nomes = document.getElementById("nomes").value
     .split("\n")
@@ -108,16 +102,16 @@ function criarSorteio() {
     .filter(n => n);
 
   if (nomes.length < 2) {
-    alert("Digite pelo menos 2 nomes!");
+    alert("Digite pelo menos 2 nomes");
     return;
   }
 
   let disponiveis = [...nomes];
-  sorteio = {};
+  let sorteio = {};
 
   for (let nome of nomes) {
     let possiveis = disponiveis.filter(n => n !== nome);
-    if (possiveis.length === 0) return criarSorteio();
+    if (!possiveis.length) return criarSorteio();
 
     let escolhido = possiveis[Math.floor(Math.random() * possiveis.length)];
     sorteio[nome] = escolhido;
@@ -127,62 +121,80 @@ function criarSorteio() {
   document.getElementById("setup").classList.add("hidden");
   const div = document.getElementById("links");
   div.classList.remove("hidden");
-
-  div.innerHTML = "<h3>🔒 Links Individuais</h3>";
+  div.innerHTML = "<h3>🔐 Links Individuais</h3>";
 
   for (let pessoa in sorteio) {
     const senha = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const id = crypto.randomUUID();
+
+    // salva resultado escondido
+    localStorage.setItem("sorteio_" + id, sorteio[pessoa]);
 
     const linkSeguro =
       location.href.split("?")[0] +
-      `?nome=${encodeURIComponent(pessoa)}` +
-      `&senha=${senha}` +
-      `&alvo=${encodeURIComponent(sorteio[pessoa])}`;
+      `?id=${id}&nome=${encodeURIComponent(pessoa)}&senha=${senha}`;
 
     const mensagem =
-`🎁 *Amigo Oculto* 🎁
+`🎄 *Amigo Oculto* 🎄
 
 Olá ${pessoa}!
 
-Sua senha é: *${senha}*
+🔐 Sua senha: *${senha}*
 
 Clique no link abaixo para descobrir quem você tirou 🤫👇
 ${linkSeguro}`;
 
-    const linkWpp = "https://wa.me/?text=" + encodeURIComponent(mensagem);
+    const wpp = "https://wa.me/?text=" + encodeURIComponent(mensagem);
 
     div.innerHTML += `
       <div class="link">
         <strong>${pessoa}</strong><br>
-        <a href="${linkWpp}" target="_blank">📲 Enviar no WhatsApp</a>
+        <a href="${wpp}" target="_blank">📲 Enviar no WhatsApp</a>
       </div>
     `;
   }
 }
 
-/* Tela individual */
-const params = new URLSearchParams(window.location.search);
-if (params.get("nome")) {
-  document.querySelector(".card").innerHTML = `
-    <h2>🔐 Área Segura</h2>
-    <p><strong>${params.get("nome")}</strong>, digite sua senha:</p>
-    <input type="password" id="senha" placeholder="Senha">
-    <button onclick="verResultado()">Ver Resultado</button>
-    <div id="resposta" class="result"></div>
-  `;
-}
+/* =========================
+   TELA INDIVIDUAL
+========================= */
+const params = new URLSearchParams(location.search);
+if (params.get("id")) {
+  const id = params.get("id");
+  const nome = params.get("nome");
+  const senhaCorreta = params.get("senha");
+  const vistoKey = "visto_" + id;
 
-function verResultado() {
-  const senhaDigitada = document.getElementById("senha").value;
-  if (senhaDigitada === params.get("senha")) {
-    document.getElementById("resposta").innerHTML = `
-      🎉 Você tirou:<br><br>
-      <h3>${params.get("alvo")}</h3>
-      🤫 Não conte para ninguém!
+  if (localStorage.getItem(vistoKey)) {
+    document.getElementById("card").innerHTML = `
+      <h2>⛔ Acesso Bloqueado</h2>
+      <p>Você já visualizou seu amigo oculto.</p>
     `;
   } else {
-    alert("❌ Senha incorreta");
+    document.getElementById("card").innerHTML = `
+      <h2>🔒 Área Segura</h2>
+      <p><strong>${nome}</strong>, digite sua senha:</p>
+      <input type="password" id="senha" placeholder="Senha">
+      <button onclick="verResultado()">Ver Resultado</button>
+      <div id="resposta" class="result"></div>
+    `;
   }
+
+  window.verResultado = function () {
+    const senhaDigitada = document.getElementById("senha").value;
+    if (senhaDigitada === senhaCorreta) {
+      const resultado = localStorage.getItem("sorteio_" + id);
+      localStorage.setItem(vistoKey, "true");
+
+      document.getElementById("resposta").innerHTML = `
+        <h3>🎉 Você tirou:</h3>
+        <h2>${resultado}</h2>
+        <p>🤫 Guarde segredo!</p>
+      `;
+    } else {
+      alert("❌ Senha incorreta");
+    }
+  };
 }
 </script>
 
