@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
@@ -92,14 +93,14 @@ function decrypt(text){
     )).join("");
 }
 
-// ================= EMBARALHAMENTO REAL =================
-function shuffle(array){
-  let arr=[...array];
-  for(let i=arr.length-1;i>0;i--){
+// ================= SHUFFLE REAL =================
+function shuffle(arr){
+  let a=[...arr];
+  for(let i=a.length-1;i>0;i--){
     const j=Math.floor(Math.random()*(i+1));
-    [arr[i],arr[j]]=[arr[j],arr[i]];
+    [a[i],a[j]]=[a[j],a[i]];
   }
-  return arr;
+  return a;
 }
 
 // ================= SORTEIO =================
@@ -111,7 +112,7 @@ function criarSorteio(){
 
   let sorteados;
   do{
-    sorteados = shuffle(nomes);
+    sorteados=shuffle(nomes);
   }while(!nomes.every((n,i)=>n!==sorteados[i]));
 
   let participantes={};
@@ -138,7 +139,7 @@ function salvarSorteio(id,participantes){
   localStorage.setItem("historico",JSON.stringify(hist));
 }
 
-// ================= LINKS =================
+// ================= EMAIL =================
 function renderizarLinks(id,participantes){
   setup.style.display="none";
   links.innerHTML=`<button onclick="baixarExcel()">📥 Baixar Excel deste sorteio</button>`;
@@ -149,27 +150,28 @@ function renderizarLinks(id,participantes){
     const senha=decrypt(p.senha);
     const link=location.href.split("?")[0]+`?s=${id}&p=${pid}`;
 
-    const msg=`🎄 Amigo Oculto 🎄
+    const assunto = "🎄 Seu Amigo Oculto chegou!";
+    const corpo = `Olá ${nome}!
 
-Olá ${nome}! ✨
-
-Preparamos esse amigo oculto com muito carinho 🎁❤️
+Que alegria ter você nesse amigo oculto 🎁✨
 
 🔐 Sua senha: ${senha}
 
-Clique abaixo para descobrir quem você tirou 🤫👇
+Clique no link abaixo para descobrir quem você tirou 🤫
 ${link}
 
 🤫 Guarde segredo!
-🎅 Feliz Natal!`;
+Desejo um Natal cheio de amor e boas surpresas 🎅❤️`;
+
+    const mailto = `mailto:?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
 
     links.innerHTML+=`
-    <div class="link">
-      ${nome}<br>
-      <a href="https://wa.me/?text=${encodeURIComponent(msg)}" target="_blank">
-        📲 Enviar WhatsApp
-      </a>
-    </div>`;
+      <div class="link">
+        ${nome}<br>
+        <a href="${mailto}">
+          📧 Enviar por E-mail
+        </a>
+      </div>`;
   }
 }
 
@@ -193,10 +195,12 @@ function baixarExcel(){
   XLSX.writeFile(wb,"amigo-oculto.xlsx");
 }
 
+// ================= HISTÓRICO =================
 function exportarHistoricoExcel(){
   if(prompt("Senha do administrador:")!==ADMIN) return alert("Senha incorreta");
   const hist=JSON.parse(localStorage.getItem("historico"))||[];
   if(!hist.length) return alert("Sem histórico");
+
   const linhas=[["Data","Nome","Amigo Oculto","Senha","Visualizado","Link"]];
   hist.forEach(h=>{
     for(let pid in h.participantes){
@@ -211,20 +215,22 @@ function exportarHistoricoExcel(){
       ]);
     }
   });
+
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(linhas),"Histórico");
   XLSX.writeFile(wb,"historico-amigo-oculto.xlsx");
 }
 
-// ================= HISTÓRICO =================
 function mostrarHistorico(){
   if(prompt("Senha do administrador:")!==ADMIN) return alert("Senha incorreta");
   const hist=JSON.parse(localStorage.getItem("historico"))||[];
   if(!hist.length) return alert("Sem sorteios");
+
   let lista="";
   hist.forEach((h,i)=>lista+=`${i+1} - ${h.data}\n`);
   const idx=parseInt(prompt(lista+"\nDigite o número:"))-1;
   if(!hist[idx]) return;
+
   sorteioAtual=hist[idx].id;
   renderizarLinks(sorteioAtual,hist[idx].participantes);
 }
@@ -234,6 +240,7 @@ const params=new URLSearchParams(location.search);
 if(params.get("s")&&params.get("p")){
   const dados=JSON.parse(localStorage.getItem("sorteio_"+params.get("s")));
   const p=dados?.[params.get("p")];
+
   if(!p) card.innerHTML="<h2>Link inválido</h2>";
   else if(p.visto) card.innerHTML="<h2>⛔ Já visualizado</h2>";
   else{
