@@ -134,6 +134,9 @@ function renderizarLinks(id, participantes){
   setup.style.display="none";
   links.innerHTML="";
 
+  // Botão de baixar Excel logo após criar o sorteio
+  links.innerHTML += `<button onclick="baixarExcel()">📥 Baixar Excel do Sorteio</button>`;
+
   for(let pid in participantes){
     const p = participantes[pid];
     const link = location.href.split("?")[0] + `?s=${id}&p=${pid}`;
@@ -164,25 +167,8 @@ Guarde segredo!
   }
 }
 
-// ===== MOSTRAR HISTÓRICO =====
-function mostrarHistorico(){
-  const senha = prompt("Senha do administrador:");
-  if(senha!==ADMIN){ alert("Senha incorreta"); return; }
-
-  const hist = JSON.parse(localStorage.getItem("historico"))||[];
-  if(!hist.length){ alert("Nenhum histórico"); return; }
-
-  let texto = hist.map((h,i)=>`${i+1} - ${h.data}`).join("\n");
-  const escolha = prompt(texto+"\nDigite o número do sorteio:");
-  const idx = parseInt(escolha)-1;
-  if(!hist[idx]) return;
-
-  sorteioAtual = hist[idx].id;
-  renderizarLinks(sorteioAtual, hist[idx].participantes);
-}
-
-// ===== EXPORTAR EXCEL =====
-function exportarExcel(){
+// ===== BAIXAR EXCEL =====
+function baixarExcel(){
   const senha = prompt("Senha do administrador:");
   if(senha!==ADMIN){ alert("Senha incorreta"); return; }
 
@@ -203,6 +189,23 @@ function exportarExcel(){
   const ws = XLSX.utils.aoa_to_sheet(linhas);
   XLSX.utils.book_append_sheet(wb, ws, "Sorteio");
   XLSX.writeFile(wb, "amigo-oculto.xlsx");
+}
+
+// ===== MOSTRAR HISTÓRICO =====
+function mostrarHistorico(){
+  const senha = prompt("Senha do administrador:");
+  if(senha!==ADMIN){ alert("Senha incorreta"); return; }
+
+  const hist = JSON.parse(localStorage.getItem("historico"))||[];
+  if(!hist.length){ alert("Nenhum histórico"); return; }
+
+  let texto = hist.map((h,i)=>`${i+1} - ${h.data}`).join("\n");
+  const escolha = prompt(texto+"\nDigite o número do sorteio:");
+  const idx = parseInt(escolha)-1;
+  if(!hist[idx]) return;
+
+  sorteioAtual = hist[idx].id;
+  renderizarLinks(sorteioAtual, hist[idx].participantes);
 }
 
 // ===== PARTICIPANTE =====
