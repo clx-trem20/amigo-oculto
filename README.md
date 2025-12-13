@@ -1,7 +1,8 @@
+<!DOCTYPE html>
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
-<title>🎄 Amigo Oculto Seguro</title>
+<title>🎄 Amigo Oculto</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
@@ -23,13 +24,13 @@ body {
   max-width: 420px;
   border-radius: 20px;
   padding: 22px;
-  box-shadow: 0 20px 45px rgba(0,0,0,0.3);
+  box-shadow: 0 20px 45px rgba(0,0,0,.3);
 }
 
 h2 { text-align: center; color: #b30000; }
 p { text-align: center; }
 
-textarea, input {
+input, textarea {
   width: 100%;
   padding: 12px;
   margin-top: 10px;
@@ -51,7 +52,6 @@ button {
 }
 
 button:hover { opacity: 0.9; }
-
 .hidden { display: none; }
 
 .link {
@@ -80,121 +80,142 @@ button:hover { opacity: 0.9; }
 <body>
 
 <div class="card" id="card">
+
   <h2>🎄 Amigo Oculto</h2>
 
+  <!-- SETUP -->
   <div id="setup">
-    <p>Digite um nome por linha:</p>
-    <textarea id="nomes" placeholder="João&#10;Maria&#10;Carlos&#10;Ana"></textarea>
+    <input id="grupo" placeholder="Nome do grupo">
+    <input id="valor" placeholder="Valor do presente (ex: R$50)">
+    <input id="data" type="date">
+    <textarea id="nomes" placeholder="Um nome por linha"></textarea>
     <button onclick="criarSorteio()">🎁 Criar Sorteio</button>
   </div>
 
+  <!-- LINKS -->
   <div id="links" class="hidden"></div>
+
 </div>
 
 <script>
-/* =========================
-   CRIAR SORTEIO
-========================= */
+// ===============================
+// CRIAR SORTEIO
+// ===============================
 function criarSorteio() {
+  const grupo = document.getElementById("grupo").value;
+  const valor = document.getElementById("valor").value;
+  const data = document.getElementById("data").value;
+
   const nomes = document.getElementById("nomes").value
-    .split("\n")
-    .map(n => n.trim())
-    .filter(n => n);
+    .split("\n").map(n => n.trim()).filter(n => n);
 
   if (nomes.length < 2) {
     alert("Digite pelo menos 2 nomes");
     return;
   }
 
+  const sorteioId = crypto.randomUUID();
   let disponiveis = [...nomes];
-  let sorteio = {};
+  let participantes = {};
 
   for (let nome of nomes) {
     let possiveis = disponiveis.filter(n => n !== nome);
     if (!possiveis.length) return criarSorteio();
 
-    let escolhido = possiveis[Math.floor(Math.random() * possiveis.length)];
-    sorteio[nome] = escolhido;
+    const escolhido = possiveis[Math.floor(Math.random() * possiveis.length)];
+    const senha = Math.random().toString(36).substring(2,8).toUpperCase();
+    const pid = crypto.randomUUID();
+
+    participantes[pid] = {
+      nome,
+      senha,
+      resultado: escolhido,
+      visto: false
+    };
+
     disponiveis.splice(disponiveis.indexOf(escolhido), 1);
   }
+
+  const dados = { grupo, valor, data, participantes };
+  localStorage.setItem("sorteio_" + sorteioId, JSON.stringify(dados));
 
   document.getElementById("setup").classList.add("hidden");
   const div = document.getElementById("links");
   div.classList.remove("hidden");
-  div.innerHTML = "<h3>🔐 Links Individuais</h3>";
 
-  for (let pessoa in sorteio) {
-    const senha = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const id = crypto.randomUUID();
+  div.innerHTML = `<h3>🔐 Links Individuais</h3>
+                   <p><strong>Grupo:</strong> ${grupo}</p>
+                   <p><strong>Valor:</strong> ${valor}</p>
+                   <p><strong>Data:</strong> ${data}</p>`;
 
-    // salva resultado escondido
-    localStorage.setItem("sorteio_" + id, sorteio[pessoa]);
+  for (let pid in participantes) {
+    const p = participantes[pid];
 
-    const linkSeguro =
+    const link =
       location.href.split("?")[0] +
-      `?id=${id}&nome=${encodeURIComponent(pessoa)}&senha=${senha}`;
+      `?sorteio=${sorteioId}&pid=${pid}`;
 
-    const mensagem =
-`🎄 *Amigo Oculto* 🎄
+    const msg =
+`🎄 Amigo Oculto 🎄
 
-Olá ${pessoa}!
+Grupo: ${grupo}
+🎁 Valor: ${valor}
+📅 Data: ${data}
 
-🔐 Sua senha: *${senha}*
+Olá ${p.nome}!
 
-Clique no link abaixo para descobrir quem você tirou 🤫👇
-${linkSeguro}`;
+🔐 Sua senha: ${p.senha}
 
-    const wpp = "https://wa.me/?text=" + encodeURIComponent(mensagem);
+Acesse o link abaixo para descobrir quem você tirou 🤫👇
+${link}`;
+
+    const wpp = "https://wa.me/?text=" + encodeURIComponent(msg);
 
     div.innerHTML += `
       <div class="link">
-        <strong>${pessoa}</strong><br>
+        <strong>${p.nome}</strong><br>
         <a href="${wpp}" target="_blank">📲 Enviar no WhatsApp</a>
-      </div>
-    `;
+      </div>`;
   }
 }
 
-/* =========================
-   TELA INDIVIDUAL
-========================= */
+// ===============================
+// TELA DO PARTICIPANTE
+// ===============================
 const params = new URLSearchParams(location.search);
-if (params.get("id")) {
-  const id = params.get("id");
-  const nome = params.get("nome");
-  const senhaCorreta = params.get("senha");
-  const vistoKey = "visto_" + id;
+if (params.get("sorteio") && params.get("pid")) {
+  const sorteio = JSON.parse(localStorage.getItem("sorteio_" + params.get("sorteio")));
+  const p = sorteio?.participantes[params.get("pid")];
 
-  if (localStorage.getItem(vistoKey)) {
-    document.getElementById("card").innerHTML = `
-      <h2>⛔ Acesso Bloqueado</h2>
-      <p>Você já visualizou seu amigo oculto.</p>
-    `;
+  if (!p) {
+    document.getElementById("card").innerHTML = "<h2>❌ Link inválido</h2>";
+  } else if (p.visto) {
+    document.getElementById("card").innerHTML = "<h2>⛔ Você já visualizou</h2>";
   } else {
     document.getElementById("card").innerHTML = `
       <h2>🔒 Área Segura</h2>
-      <p><strong>${nome}</strong>, digite sua senha:</p>
-      <input type="password" id="senha" placeholder="Senha">
+      <p><strong>${p.nome}</strong>, digite sua senha:</p>
+      <input id="senha" type="password">
       <button onclick="verResultado()">Ver Resultado</button>
       <div id="resposta" class="result"></div>
     `;
-  }
 
-  window.verResultado = function () {
-    const senhaDigitada = document.getElementById("senha").value;
-    if (senhaDigitada === senhaCorreta) {
-      const resultado = localStorage.getItem("sorteio_" + id);
-      localStorage.setItem(vistoKey, "true");
+    window.verResultado = function () {
+      if (document.getElementById("senha").value !== p.senha) {
+        alert("Senha incorreta");
+        return;
+      }
+
+      p.visto = true;
+      localStorage.setItem("sorteio_" + params.get("sorteio"), JSON.stringify(sorteio));
 
       document.getElementById("resposta").innerHTML = `
         <h3>🎉 Você tirou:</h3>
-        <h2>${resultado}</h2>
+        <h2>${p.resultado}</h2>
         <p>🤫 Guarde segredo!</p>
       `;
-    } else {
-      alert("❌ Senha incorreta");
-    }
-  };
+    };
+  }
 }
 </script>
 
