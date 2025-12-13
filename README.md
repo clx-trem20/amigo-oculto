@@ -150,7 +150,7 @@ Clique no link abaixo para descobrir quem você tirou 🤫
 ${link}
 
 Guarde segredo!
-🎅 Que esse Natal seja cheio de amor, risadas e bons presentes!;
+🎅 Que esse Natal seja cheio de amor, risadas e bons presentes!`;
 
     const mailto = `mailto:${p.email}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
 
