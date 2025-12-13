@@ -1,11 +1,10 @@
-<!DOCTYPE html>
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
 <title>🎄 Amigo Oculto Natalino</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- Biblioteca para gerar Excel -->
+<!-- Excel -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
 <style>
@@ -30,11 +29,7 @@ body {
   box-shadow: 0 20px 45px rgba(0,0,0,0.3);
 }
 
-h2 {
-  text-align: center;
-  color: #b30000;
-}
-
+h2 { text-align: center; color: #b30000; }
 p { text-align: center; }
 
 textarea, input {
@@ -58,8 +53,6 @@ button {
   cursor: pointer;
 }
 
-button:hover { opacity: 0.9; }
-
 .hidden { display: none; }
 
 .link {
@@ -67,7 +60,6 @@ button:hover { opacity: 0.9; }
   padding: 10px;
   background: #f7f7f7;
   border-radius: 10px;
-  font-size: 14px;
 }
 
 .link a {
@@ -83,11 +75,13 @@ button:hover { opacity: 0.9; }
 <div class="card" id="card">
   <h2>🎄 Amigo Oculto</h2>
 
-  <!-- CRIAÇÃO -->
+  <!-- CRIAR -->
   <div id="setup">
     <p>Digite um nome por linha:</p>
-    <textarea id="nomes" placeholder="Ex:\nAna\nCarlos\nJoão"></textarea>
+    <textarea id="nomes" placeholder="Ana\nCarlos\nJoão"></textarea>
     <button onclick="criarSorteio()">🎁 Criar Sorteio</button>
+
+    <button onclick="mostrarHistorico()">🗂️ Ver Histórico</button>
   </div>
 
   <!-- LINKS -->
@@ -95,19 +89,17 @@ button:hover { opacity: 0.9; }
 </div>
 
 <script>
-let sorteioId = null;
+const ADMIN_SENHA = "clx";
+let sorteioIdAtual = null;
 
-// ============================
+// =======================
 // CRIAR SORTEIO
-// ============================
+// =======================
 function criarSorteio() {
   const nomes = document.getElementById("nomes").value
     .split("\n").map(n => n.trim()).filter(n => n);
 
-  if (nomes.length < 2) {
-    alert("Digite pelo menos 2 nomes");
-    return;
-  }
+  if (nomes.length < 2) return alert("Digite pelo menos 2 nomes");
 
   let disponiveis = [...nomes];
   let participantes = {};
@@ -130,8 +122,10 @@ function criarSorteio() {
     disponiveis.splice(disponiveis.indexOf(escolhido), 1);
   }
 
-  sorteioId = crypto.randomUUID();
-  localStorage.setItem("sorteio_" + sorteioId, JSON.stringify(participantes));
+  sorteioIdAtual = crypto.randomUUID();
+  localStorage.setItem("sorteio_" + sorteioIdAtual, JSON.stringify(participantes));
+
+  salvarHistorico(sorteioIdAtual);
 
   document.getElementById("setup").classList.add("hidden");
   const div = document.getElementById("links");
@@ -139,23 +133,29 @@ function criarSorteio() {
 
   div.innerHTML = `
     <h3>🔐 Links Individuais</h3>
-    <button onclick="baixarExcel()">📥 Baixar lista (Excel)</button>
+    <button onclick="baixarExcelProtegido()">📥 Baixar Excel (Admin)</button>
   `;
 
   for (let pid in participantes) {
     const p = participantes[pid];
-    const link = location.href.split("?")[0] + `?s=${sorteioId}&p=${pid}`;
+    const link = location.href.split("?")[0] + `?s=${sorteioIdAtual}&p=${pid}`;
 
-    const msg =
+    const mensagem = 
 `🎄 Amigo Oculto 🎄
 
-Olá ${p.nome}!
-🔑 Sua senha: ${p.senha}
+Olá ${p.nome}! ✨
 
-Acesse o link abaixo para descobrir quem você tirou 🤫👇
-${link}`;
+Chegou o momento de espalhar alegria, carinho e boas surpresas 🎁❤️  
+Preparamos este amigo oculto com muito cuidado especialmente para você!
 
-    const wpp = "https://wa.me/?text=" + encodeURIComponent(msg);
+🔐 Sua senha: ${p.senha}
+
+Clique no link abaixo para descobrir quem você tirou 🤫👇
+${link}
+
+🎅 Que esse Natal seja cheio de amor, risadas e bons presentes!`;
+
+    const wpp = "https://wa.me/?text=" + encodeURIComponent(mensagem);
 
     div.innerHTML += `
       <div class="link">
@@ -165,23 +165,21 @@ ${link}`;
   }
 }
 
-// ============================
-// BAIXAR EXCEL
-// ============================
-function baixarExcel() {
-  const dados = JSON.parse(localStorage.getItem("sorteio_" + sorteioId));
+// =======================
+// ADMIN + EXCEL
+// =======================
+function baixarExcelProtegido() {
+  const senha = prompt("Digite a senha de administrador:");
+  if (senha !== ADMIN_SENHA) return alert("Senha incorreta");
+
+  const dados = JSON.parse(localStorage.getItem("sorteio_" + sorteioIdAtual));
   if (!dados) return alert("Sorteio não encontrado");
 
   const linhas = [["Nome", "Senha", "Amigo Oculto", "Visualizado"]];
 
   for (let id in dados) {
     const p = dados[id];
-    linhas.push([
-      p.nome,
-      p.senha,
-      p.resultado,
-      p.visto ? "Sim" : "Não"
-    ]);
+    linhas.push([p.nome, p.senha, p.resultado, p.visto ? "Sim" : "Não"]);
   }
 
   const wb = XLSX.utils.book_new();
@@ -190,11 +188,31 @@ function baixarExcel() {
   XLSX.writeFile(wb, "amigo-oculto.xlsx");
 }
 
-// ============================
-// TELA DO PARTICIPANTE
-// ============================
-const params = new URLSearchParams(location.search);
+// =======================
+// HISTÓRICO
+// =======================
+function salvarHistorico(id) {
+  const hist = JSON.parse(localStorage.getItem("historico")) || [];
+  hist.push({ id, data: new Date().toLocaleString() });
+  localStorage.setItem("historico", JSON.stringify(hist));
+}
 
+function mostrarHistorico() {
+  const hist = JSON.parse(localStorage.getItem("historico")) || [];
+  if (!hist.length) return alert("Nenhum sorteio salvo");
+
+  let texto = "📦 HISTÓRICO DE SORTEIOS:\n\n";
+  hist.forEach((h, i) => {
+    texto += `${i+1}) ${h.data}\nID: ${h.id}\n\n`;
+  });
+
+  alert(texto);
+}
+
+// =======================
+// PARTICIPANTE
+// =======================
+const params = new URLSearchParams(location.search);
 if (params.get("s") && params.get("p")) {
   const dados = JSON.parse(localStorage.getItem("sorteio_" + params.get("s")));
   const p = dados?.[params.get("p")];
