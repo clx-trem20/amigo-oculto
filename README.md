@@ -141,7 +141,8 @@ function renderizarLinks(id, participantes){
     const assunto = "🎄 Seu Amigo Oculto chegou!";
     const corpo = `Olá ${p.nome}!
 
-Chegou a hora do amigo oculto 🎁✨
+Chegou o momento de espalhar alegria, carinho e boas surpresas 🎁❤️ 
+Preparamos este amigo oculto com muito cuidado especialmente para você!
 
 🔐 Sua senha: ${p.senha}
 
@@ -149,7 +150,7 @@ Clique no link abaixo para descobrir quem você tirou 🤫
 ${link}
 
 Guarde segredo!
-Feliz Natal 🎅❤️`;
+🎅 Que esse Natal seja cheio de amor, risadas e bons presentes!;
 
     const mailto = `mailto:${p.email}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
 
