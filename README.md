@@ -2,8 +2,11 @@
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
-<title>🎄 Amigo Oculto</title>
+<title>🎄 Amigo Oculto Natalino</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Biblioteca para gerar Excel -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
 <style>
 * { box-sizing: border-box; }
@@ -24,13 +27,17 @@ body {
   max-width: 420px;
   border-radius: 20px;
   padding: 22px;
-  box-shadow: 0 20px 45px rgba(0,0,0,.3);
+  box-shadow: 0 20px 45px rgba(0,0,0,0.3);
 }
 
-h2 { text-align: center; color: #b30000; }
+h2 {
+  text-align: center;
+  color: #b30000;
+}
+
 p { text-align: center; }
 
-input, textarea {
+textarea, input {
   width: 100%;
   padding: 12px;
   margin-top: 10px;
@@ -52,6 +59,7 @@ button {
 }
 
 button:hover { opacity: 0.9; }
+
 .hidden { display: none; }
 
 .link {
@@ -63,16 +71,9 @@ button:hover { opacity: 0.9; }
 }
 
 .link a {
-  display: inline-block;
-  margin-top: 5px;
   color: #0f7a3a;
   font-weight: bold;
   text-decoration: none;
-}
-
-.result {
-  text-align: center;
-  margin-top: 15px;
 }
 </style>
 </head>
@@ -80,32 +81,26 @@ button:hover { opacity: 0.9; }
 <body>
 
 <div class="card" id="card">
-
   <h2>🎄 Amigo Oculto</h2>
 
-  <!-- SETUP -->
+  <!-- CRIAÇÃO -->
   <div id="setup">
-    <input id="grupo" placeholder="Nome do grupo">
-    <input id="valor" placeholder="Valor do presente (ex: R$50)">
-    <input id="data" type="date">
-    <textarea id="nomes" placeholder="Um nome por linha"></textarea>
+    <p>Digite um nome por linha:</p>
+    <textarea id="nomes" placeholder="Ex:\nAna\nCarlos\nJoão"></textarea>
     <button onclick="criarSorteio()">🎁 Criar Sorteio</button>
   </div>
 
   <!-- LINKS -->
   <div id="links" class="hidden"></div>
-
 </div>
 
 <script>
-// ===============================
-// CRIAR SORTEIO
-// ===============================
-function criarSorteio() {
-  const grupo = document.getElementById("grupo").value;
-  const valor = document.getElementById("valor").value;
-  const data = document.getElementById("data").value;
+let sorteioId = null;
 
+// ============================
+// CRIAR SORTEIO
+// ============================
+function criarSorteio() {
   const nomes = document.getElementById("nomes").value
     .split("\n").map(n => n.trim()).filter(n => n);
 
@@ -114,7 +109,6 @@ function criarSorteio() {
     return;
   }
 
-  const sorteioId = crypto.randomUUID();
   let disponiveis = [...nomes];
   let participantes = {};
 
@@ -122,9 +116,9 @@ function criarSorteio() {
     let possiveis = disponiveis.filter(n => n !== nome);
     if (!possiveis.length) return criarSorteio();
 
-    const escolhido = possiveis[Math.floor(Math.random() * possiveis.length)];
-    const senha = Math.random().toString(36).substring(2,8).toUpperCase();
-    const pid = crypto.randomUUID();
+    let escolhido = possiveis[Math.floor(Math.random() * possiveis.length)];
+    let senha = Math.random().toString(36).substring(2,8).toUpperCase();
+    let pid = crypto.randomUUID();
 
     participantes[pid] = {
       nome,
@@ -136,35 +130,27 @@ function criarSorteio() {
     disponiveis.splice(disponiveis.indexOf(escolhido), 1);
   }
 
-  const dados = { grupo, valor, data, participantes };
-  localStorage.setItem("sorteio_" + sorteioId, JSON.stringify(dados));
+  sorteioId = crypto.randomUUID();
+  localStorage.setItem("sorteio_" + sorteioId, JSON.stringify(participantes));
 
   document.getElementById("setup").classList.add("hidden");
   const div = document.getElementById("links");
   div.classList.remove("hidden");
 
-  div.innerHTML = `<h3>🔐 Links Individuais</h3>
-                   <p><strong>Grupo:</strong> ${grupo}</p>
-                   <p><strong>Valor:</strong> ${valor}</p>
-                   <p><strong>Data:</strong> ${data}</p>`;
+  div.innerHTML = `
+    <h3>🔐 Links Individuais</h3>
+    <button onclick="baixarExcel()">📥 Baixar lista (Excel)</button>
+  `;
 
   for (let pid in participantes) {
     const p = participantes[pid];
-
-    const link =
-      location.href.split("?")[0] +
-      `?sorteio=${sorteioId}&pid=${pid}`;
+    const link = location.href.split("?")[0] + `?s=${sorteioId}&p=${pid}`;
 
     const msg =
 `🎄 Amigo Oculto 🎄
 
-Grupo: ${grupo}
-🎁 Valor: ${valor}
-📅 Data: ${data}
-
 Olá ${p.nome}!
-
-🔐 Sua senha: ${p.senha}
+🔑 Sua senha: ${p.senha}
 
 Acesse o link abaixo para descobrir quem você tirou 🤫👇
 ${link}`;
@@ -174,30 +160,56 @@ ${link}`;
     div.innerHTML += `
       <div class="link">
         <strong>${p.nome}</strong><br>
-        <a href="${wpp}" target="_blank">📲 Enviar no WhatsApp</a>
+        <a href="${wpp}" target="_blank">📲 Enviar WhatsApp</a>
       </div>`;
   }
 }
 
-// ===============================
+// ============================
+// BAIXAR EXCEL
+// ============================
+function baixarExcel() {
+  const dados = JSON.parse(localStorage.getItem("sorteio_" + sorteioId));
+  if (!dados) return alert("Sorteio não encontrado");
+
+  const linhas = [["Nome", "Senha", "Amigo Oculto", "Visualizado"]];
+
+  for (let id in dados) {
+    const p = dados[id];
+    linhas.push([
+      p.nome,
+      p.senha,
+      p.resultado,
+      p.visto ? "Sim" : "Não"
+    ]);
+  }
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(linhas);
+  XLSX.utils.book_append_sheet(wb, ws, "Sorteio");
+  XLSX.writeFile(wb, "amigo-oculto.xlsx");
+}
+
+// ============================
 // TELA DO PARTICIPANTE
-// ===============================
+// ============================
 const params = new URLSearchParams(location.search);
-if (params.get("sorteio") && params.get("pid")) {
-  const sorteio = JSON.parse(localStorage.getItem("sorteio_" + params.get("sorteio")));
-  const p = sorteio?.participantes[params.get("pid")];
+
+if (params.get("s") && params.get("p")) {
+  const dados = JSON.parse(localStorage.getItem("sorteio_" + params.get("s")));
+  const p = dados?.[params.get("p")];
 
   if (!p) {
-    document.getElementById("card").innerHTML = "<h2>❌ Link inválido</h2>";
+    card.innerHTML = "<h2>❌ Link inválido</h2>";
   } else if (p.visto) {
-    document.getElementById("card").innerHTML = "<h2>⛔ Você já visualizou</h2>";
+    card.innerHTML = "<h2>⛔ Você já visualizou</h2>";
   } else {
-    document.getElementById("card").innerHTML = `
+    card.innerHTML = `
       <h2>🔒 Área Segura</h2>
-      <p><strong>${p.nome}</strong>, digite sua senha:</p>
-      <input id="senha" type="password">
+      <p>${p.nome}, digite sua senha:</p>
+      <input type="password" id="senha">
       <button onclick="verResultado()">Ver Resultado</button>
-      <div id="resposta" class="result"></div>
+      <div id="resposta"></div>
     `;
 
     window.verResultado = function () {
@@ -205,15 +217,10 @@ if (params.get("sorteio") && params.get("pid")) {
         alert("Senha incorreta");
         return;
       }
-
       p.visto = true;
-      localStorage.setItem("sorteio_" + params.get("sorteio"), JSON.stringify(sorteio));
-
-      document.getElementById("resposta").innerHTML = `
-        <h3>🎉 Você tirou:</h3>
-        <h2>${p.resultado}</h2>
-        <p>🤫 Guarde segredo!</p>
-      `;
+      localStorage.setItem("sorteio_" + params.get("s"), JSON.stringify(dados));
+      document.getElementById("resposta").innerHTML =
+        `<h3>🎉 Você tirou:</h3><h2>${p.resultado}</h2><p>🤫 Guarde segredo!</p>`;
     };
   }
 }
