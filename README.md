@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
@@ -18,7 +19,7 @@ body{
 }
 .card{
   background:#fff;
-  max-width:440px;
+  max-width:450px;
   width:100%;
   padding:20px;
   border-radius:18px;
@@ -34,6 +35,9 @@ button{
   border:none;
   border-radius:10px;
   cursor:pointer;
+}
+.admin{
+  background:#0f7a3a;
 }
 .link{
   background:#f5f5f5;
@@ -53,7 +57,6 @@ a{color:#0f7a3a;font-weight:bold;text-decoration:none}
 <textarea id="dados" placeholder="Nome,email@email.com,Categoria (um por linha)"></textarea>
 <button onclick="criarSorteio()">🎁 Criar Sorteio</button>
 <button onclick="mostrarHistorico()">🗂️ Histórico</button>
-<button onclick="exportarExcel()">📥 Baixar Resultados (Excel)</button>
 </div>
 
 <div id="links"></div>
@@ -119,18 +122,19 @@ function criarSorteio(){
 
 function renderizarLinks(id, participantes){
   setup.style.display="none";
-  links.innerHTML="";
+  links.innerHTML = `
+    <button class="admin" onclick="baixarExcel()">📥 Baixar Excel (Admin)</button>
+  `;
 
   for(let pid in participantes){
     const p = participantes[pid];
-    const link = location.pathname + `?s=${id}&p=${pid}`;
+    const link = location.origin + location.pathname + `?s=${id}&p=${pid}`;
 
     const assunto = "🎄 Seu Amigo Oculto chegou!";
     const corpo =
 `🎄 Amigo Oculto 🎄
 
 Olá ${p.nome}! ✨
-
 Categoria: ${p.categoria}
 
 Chegou o momento de espalhar alegria e boas surpresas 🎁❤️
@@ -138,10 +142,10 @@ Chegou o momento de espalhar alegria e boas surpresas 🎁❤️
 🔐 Sua senha: ${p.senha}
 
 Clique no link abaixo para descobrir quem você tirou:
-${location.origin}${link}
+${link}
 
 🤫 Guarde segredo!
-🎅 Que esse Natal seja cheio de amor e felicidade!`;
+🎅 Feliz Natal!`;
 
     const mailto = `mailto:${p.email}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
 
@@ -155,28 +159,10 @@ ${location.origin}${link}
   }
 }
 
-function mostrarHistorico(){
+function baixarExcel(){
   if(prompt("Senha do administrador:")!==ADMIN){
-    alert("Senha incorreta"); return;
-  }
-  const hist = JSON.parse(localStorage.getItem("historico"))||[];
-  if(!hist.length){ alert("Nenhum histórico"); return; }
-
-  let texto = hist.map((h,i)=>`${i+1} - ${h.data}`).join("\n");
-  const escolha = prompt(texto+"\nDigite o número:");
-  const idx = parseInt(escolha)-1;
-  if(!hist[idx]) return;
-
-  sorteioAtual = hist[idx].id;
-  renderizarLinks(sorteioAtual, hist[idx].participantes);
-}
-
-function exportarExcel(){
-  if(prompt("Senha do administrador:")!==ADMIN){
-    alert("Senha incorreta"); return;
-  }
-  if(!sorteioAtual){
-    alert("Nenhum sorteio ativo"); return;
+    alert("Senha incorreta");
+    return;
   }
 
   const dados = JSON.parse(localStorage.getItem("sorteio_"+sorteioAtual));
@@ -192,6 +178,27 @@ function exportarExcel(){
   const ws = XLSX.utils.aoa_to_sheet(linhas);
   XLSX.utils.book_append_sheet(wb, ws, "Resultados");
   XLSX.writeFile(wb, "amigo-oculto.xlsx");
+}
+
+function mostrarHistorico(){
+  if(prompt("Senha do administrador:")!==ADMIN){
+    alert("Senha incorreta");
+    return;
+  }
+
+  const hist = JSON.parse(localStorage.getItem("historico"))||[];
+  if(!hist.length){
+    alert("Nenhum histórico");
+    return;
+  }
+
+  let texto = hist.map((h,i)=>`${i+1} - ${h.data}`).join("\n");
+  const escolha = prompt(texto+"\nDigite o número:");
+  const idx = parseInt(escolha)-1;
+  if(!hist[idx]) return;
+
+  sorteioAtual = hist[idx].id;
+  renderizarLinks(sorteioAtual, hist[idx].participantes);
 }
 
 /* PARTICIPANTE */
@@ -214,7 +221,8 @@ if(params.get("s") && params.get("p")){
     `;
     window.ver=()=>{
       if(document.getElementById("senha").value!==p.senha){
-        alert("Senha incorreta"); return;
+        alert("Senha incorreta");
+        return;
       }
       p.visto=true;
       localStorage.setItem("sorteio_"+params.get("s"), JSON.stringify(dados));
