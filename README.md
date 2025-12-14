@@ -19,7 +19,7 @@ body{
 }
 .card{
   background:#fff;
-  max-width:460px;
+  max-width:450px;
   width:100%;
   padding:20px;
   border-radius:18px;
@@ -72,7 +72,8 @@ a{color:#0f7a3a;font-weight:bold;text-decoration:none}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  getFirestore, doc, setDoc, getDoc, getDocs, collection
+  getFirestore, doc, setDoc, getDoc, getDocs,
+  collection
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -90,7 +91,7 @@ const db = getFirestore(app);
 const ADMIN = "clx";
 let sorteioAtual = null;
 
-/* 🔀 Shuffle seguro */
+// 🔀 Shuffle seguro
 function shuffle(arr){
   let a=[...arr];
   for(let i=a.length-1;i>0;i--){
@@ -100,28 +101,24 @@ function shuffle(arr){
   return a;
 }
 
-/* 🎁 Criar sorteio */
+// 🎁 Criar sorteio
 window.criarSorteio = async ()=>{
   const linhas = dados.value.split("\n").map(l=>l.trim()).filter(Boolean);
-  if(linhas.length < 2){
-    alert("Mínimo 2 participantes");
-    return;
-  }
+  if(linhas.length<2){ alert("Mínimo 2 participantes"); return; }
 
   const base = linhas.map(l=>{
     const [nome,email]=l.split(",");
-    return { nome:nome.trim(), email:email.trim() };
+    return {nome:nome.trim(),email:email.trim()};
   });
 
   let nomes = base.map(p=>p.nome);
   let sorteados;
-  do{
-    sorteados = shuffle(nomes);
-  }while(!nomes.every((n,i)=>n!==sorteados[i]));
+  do{ sorteados=shuffle(nomes); }
+  while(!nomes.every((n,i)=>n!==sorteados[i]));
 
-  let participantes = {};
+  let participantes={};
   base.forEach((p,i)=>{
-    const id = crypto.randomUUID();
+    const id=crypto.randomUUID();
     participantes[id]={
       nome:p.nome,
       email:p.email,
@@ -137,106 +134,80 @@ window.criarSorteio = async ()=>{
     data:new Date().toLocaleString()
   });
 
-  renderizarLinks(sorteioAtual, participantes);
+  renderizarLinks(sorteioAtual,participantes);
 };
 
-/* 📧 Links de e-mail (iPhone OK) */
-function renderizarLinks(id, part){
+// 📧 Links de e-mail
+function renderizarLinks(id,part){
   setup.style.display="none";
   links.innerHTML="";
-
   for(let pid in part){
-    const p = part[pid];
-    const link = location.href.split("?")[0] + `?s=${id}&p=${pid}`;
+    const p=part[pid];
+    const link=location.origin+location.pathname+`?s=${id}&p=${pid}`;
+    const assunto="🎄 Seu Amigo Oculto chegou!";
+    const corpo=`Olá ${p.nome}!
 
-    const assunto = "🎄 Seu Amigo Oculto chegou!";
-    const corpo =
-`Olá ${p.nome}!
+🔐 Senha: ${p.senha}
 
-Chegou o momento de espalhar alegria 🎁✨
-
-🔐 Sua senha: ${p.senha}
-
-Clique no link abaixo para descobrir quem você tirou:
+Descubra seu amigo oculto:
 ${link}
 
-Guarde segredo 🤫
-Que seu Natal seja cheio de amor ❤️🎅`;
-
-    links.innerHTML += `
+Guarde segredo 🎅`;
+    links.innerHTML+=`
       <div class="link">
-        <strong>${p.nome}</strong><br>
-        ${p.email}<br><br>
+        <b>${p.nome}</b><br>${p.email}<br><br>
         <a href="mailto:${p.email}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}">
-          Enviar por e-mail
-        </a>
-      </div>
-    `;
+        Enviar por e-mail</a>
+      </div>`;
   }
 }
 
-/* 🗂️ Histórico */
+// 🗂️ Histórico
 window.mostrarHistorico = async ()=>{
-  if(prompt("Senha do administrador:") !== ADMIN) return;
-
-  const snap = await getDocs(collection(db,"historico"));
+  if(prompt("Senha admin")!==ADMIN) return;
+  const snap=await getDocs(collection(db,"historico"));
   let lista=[];
   snap.forEach(d=>lista.push(d.id));
-
-  const escolha = prompt("ID do sorteio:\n"+lista.join("\n"));
-  if(!escolha) return;
-
-  const s = await getDoc(doc(db,"sorteios",escolha));
-  sorteioAtual = escolha;
-  renderizarLinks(escolha, s.data());
+  const id=prompt("ID do sorteio:\n"+lista.join("\n"));
+  if(!id) return;
+  const s=await getDoc(doc(db,"sorteios",id));
+  sorteioAtual=id;
+  renderizarLinks(id,s.data());
 };
 
-/* 📥 Exportar Excel */
+// 📥 Excel
 window.exportarExcel = async ()=>{
-  if(prompt("Senha do administrador:") !== ADMIN) return;
-  if(!sorteioAtual){ alert("Nenhum sorteio ativo"); return; }
-
-  const s = await getDoc(doc(db,"sorteios",sorteioAtual));
-  const dados = s.data();
-
-  const linhas=[["Nome","Email","Resultado","Senha","Visualizado"]];
+  if(prompt("Senha admin")!==ADMIN) return;
+  const s=await getDoc(doc(db,"sorteios",sorteioAtual));
+  const dados=s.data();
+  const linhas=[["Nome","Email","Resultado","Senha"]];
   for(let i in dados){
     const p=dados[i];
-    linhas.push([p.nome,p.email,p.resultado,p.senha,p.visto?"Sim":"Não"]);
+    linhas.push([p.nome,p.email,p.resultado,p.senha]);
   }
-
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(linhas),"Sorteio");
   XLSX.writeFile(wb,"amigo-oculto.xlsx");
 };
 
-/* 👤 Tela do participante */
-const params = new URLSearchParams(location.search);
-if(params.get("s") && params.get("p")){
-  const snap = await getDoc(doc(db,"sorteios",params.get("s")));
-  const p = snap.data()?.[params.get("p")];
-
-  if(!p){
-    card.innerHTML="<h2>❌ Link inválido</h2>";
-  }else if(p.visto){
-    card.innerHTML="<h2>⛔ Resultado já visualizado</h2>";
-  }else{
+// 👤 Participante
+const params=new URLSearchParams(location.search);
+if(params.get("s")&&params.get("p")){
+  const snap=await getDoc(doc(db,"sorteios",params.get("s")));
+  const p=snap.data()?.[params.get("p")];
+  if(!p){ card.innerHTML="<h2>Link inválido</h2>"; }
+  else{
     card.innerHTML=`
-      <h2>🔒 Área Segura</h2>
-      <p>${p.nome}</p>
+      <h2>Área segura</h2>
       <input id="senha" placeholder="Senha">
-      <button id="ver">Ver Resultado</button>
-      <div id="res"></div>
-    `;
-    ver.onclick = async ()=>{
-      if(senha.value !== p.senha){
-        alert("Senha incorreta");
-        return;
-      }
-      p.visto = true;
-      await setDoc(doc(db,"sorteios",params.get("s")), snap.data());
-      res.innerHTML = `<h2>🎉 Você tirou:</h2><h3>${p.resultado}</h3>`;
-    };
+      <button id="ver">Ver</button>
+      <div id="res"></div>`;
+    ver.onclick=async()=>{
+      if(senha.value!==p.senha){alert("Senha errada");return;}
+      p.visto=true;
+      await setDoc(doc(db,"sorteios",params.get("s")),snap.data());
+      res.innerHTML="<h2>🎉 "+p.resultado+"</h2>";
+    }
   }
 }
 </script>
