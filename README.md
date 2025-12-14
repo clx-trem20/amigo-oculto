@@ -19,7 +19,7 @@ body{
 }
 .card{
   background:#fff;
-  max-width:450px;
+  max-width:480px;
   width:100%;
   padding:20px;
   border-radius:18px;
@@ -36,7 +36,7 @@ textarea,input{
 button{
   width:100%;
   padding:14px;
-  margin-top:12px;
+  margin-top:10px;
   border:none;
   border-radius:12px;
   background:#c62828;
@@ -44,13 +44,13 @@ button{
   font-size:16px;
   cursor:pointer;
 }
+.excel{ background:#2e7d32 }
 .link{
   background:#f5f5f5;
-  padding:10px;
-  margin-top:10px;
-  border-radius:10px;
+  padding:12px;
+  margin-top:12px;
+  border-radius:12px;
 }
-a{color:#0f7a3a;font-weight:bold;text-decoration:none}
 </style>
 </head>
 
@@ -61,37 +61,27 @@ a{color:#0f7a3a;font-weight:bold;text-decoration:none}
 <div id="setup">
 <textarea id="dados" placeholder="Nome,email@email.com (um por linha)"></textarea>
 <button onclick="criarSorteio()">🎁 Criar Sorteio</button>
-<button onclick="mostrarHistorico()">🗂️ Histórico</button>
-<button onclick="exportarExcel()">📥 Exportar Excel</button>
 </div>
 
 <div id="links"></div>
 </div>
 
-<!-- 🔥 FIREBASE -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {
-  getFirestore, doc, setDoc, getDoc, getDocs,
-  collection
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCgV3hmEfZX8dzPMxNoFiC9YURNboJkWf4",
   authDomain: "amigo-oculto-af918.firebaseapp.com",
   projectId: "amigo-oculto-af918",
-  storageBucket: "amigo-oculto-af918.firebasestorage.app",
-  messagingSenderId: "485780565818",
-  appId: "1:485780565818:web:3d28376965576d57cc2a03"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 const ADMIN = "clx";
-let sorteioAtual = null;
 
-// 🔀 Shuffle seguro
+// 🔀 SORTEIO ALEATÓRIO
 function shuffle(arr){
   let a=[...arr];
   for(let i=a.length-1;i>0;i--){
@@ -101,25 +91,24 @@ function shuffle(arr){
   return a;
 }
 
-// 🎁 Criar sorteio
+// 🎁 CRIAR SORTEIO
 window.criarSorteio = async ()=>{
   const linhas = dados.value.split("\n").map(l=>l.trim()).filter(Boolean);
-  if(linhas.length<2){ alert("Mínimo 2 participantes"); return; }
+  if(linhas.length < 2){ alert("Mínimo 2 participantes"); return; }
 
   const base = linhas.map(l=>{
     const [nome,email]=l.split(",");
-    return {nome:nome.trim(),email:email.trim()};
+    return {nome:nome.trim(), email:email.trim()};
   });
 
-  let nomes = base.map(p=>p.nome);
+  const nomes = base.map(p=>p.nome);
   let sorteados;
-  do{ sorteados=shuffle(nomes); }
-  while(!nomes.every((n,i)=>n!==sorteados[i]));
+  do { sorteados = shuffle(nomes); }
+  while(!nomes.every((n,i)=>n !== sorteados[i]));
 
-  let participantes={};
+  const participantes = {};
   base.forEach((p,i)=>{
-    const id=crypto.randomUUID();
-    participantes[id]={
+    participantes[crypto.randomUUID()] = {
       nome:p.nome,
       email:p.email,
       senha:Math.random().toString(36).substring(2,8).toUpperCase(),
@@ -128,87 +117,99 @@ window.criarSorteio = async ()=>{
     };
   });
 
-  sorteioAtual = crypto.randomUUID();
-  await setDoc(doc(db,"sorteios",sorteioAtual),participantes);
-  await setDoc(doc(db,"historico",sorteioAtual),{
-    data:new Date().toLocaleString()
-  });
-
-  renderizarLinks(sorteioAtual,participantes);
+  const sorteioID = crypto.randomUUID();
+  await setDoc(doc(db,"sorteios",sorteioID), participantes);
+  renderizarLinks(sorteioID, participantes);
 };
 
-// 📧 Links de e-mail
-function renderizarLinks(id,part){
+// 📧 TELA ADMIN
+function renderizarLinks(id, part){
   setup.style.display="none";
   links.innerHTML="";
+
+  const linkExcel = `${location.origin}${location.pathname}?excel=${id}&admin=${ADMIN}`;
+
+  links.innerHTML += `
+    <button class="excel" onclick="window.open('${linkExcel}')">
+      📥 Baixar Excel Completo
+    </button>
+  `;
+
   for(let pid in part){
-    const p=part[pid];
-    const link=location.origin+location.pathname+`?s=${id}&p=${pid}`;
-    const assunto="🎄 Seu Amigo Oculto chegou!";
-    const corpo=`Olá ${p.nome}!
+    const p = part[pid];
+    const linkPessoa = `${location.origin}${location.pathname}?s=${id}&p=${pid}`;
+
+    const mensagem = `
+🎄 Olá ${p.nome}!
+
+O sorteio do Amigo Oculto já aconteceu 🎁
+
+👉 Descubra quem você tirou:
+${linkPessoa}
 
 🔐 Senha: ${p.senha}
 
-Descubra seu amigo oculto:
-${link}
+Guarde segredo 🤫
+`;
 
-Guarde segredo 🎅`;
-    links.innerHTML+=`
+    links.innerHTML += `
       <div class="link">
         <b>${p.nome}</b><br>${p.email}<br><br>
-        <a href="mailto:${p.email}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}">
-        Enviar por e-mail</a>
-      </div>`;
+        <a href="mailto:${p.email}?subject=🎄 Amigo Oculto&body=${encodeURIComponent(mensagem)}">
+          <button>📧 Enviar e-mail</button>
+        </a>
+      </div>
+    `;
   }
 }
 
-// 🗂️ Histórico
-window.mostrarHistorico = async ()=>{
-  if(prompt("Senha admin")!==ADMIN) return;
-  const snap=await getDocs(collection(db,"historico"));
-  let lista=[];
-  snap.forEach(d=>lista.push(d.id));
-  const id=prompt("ID do sorteio:\n"+lista.join("\n"));
-  if(!id) return;
-  const s=await getDoc(doc(db,"sorteios",id));
-  sorteioAtual=id;
-  renderizarLinks(id,s.data());
-};
+// 👤 PARTICIPANTE
+const params = new URLSearchParams(location.search);
+if(params.get("s") && params.get("p")){
+  const snap = await getDoc(doc(db,"sorteios",params.get("s")));
+  const dados = snap.data();
+  const p = dados?.[params.get("p")];
 
-// 📥 Excel
-window.exportarExcel = async ()=>{
-  if(prompt("Senha admin")!==ADMIN) return;
-  const s=await getDoc(doc(db,"sorteios",sorteioAtual));
-  const dados=s.data();
-  const linhas=[["Nome","Email","Resultado","Senha"]];
-  for(let i in dados){
-    const p=dados[i];
-    linhas.push([p.nome,p.email,p.resultado,p.senha]);
-  }
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(linhas),"Sorteio");
-  XLSX.writeFile(wb,"amigo-oculto.xlsx");
-};
-
-// 👤 Participante
-const params=new URLSearchParams(location.search);
-if(params.get("s")&&params.get("p")){
-  const snap=await getDoc(doc(db,"sorteios",params.get("s")));
-  const p=snap.data()?.[params.get("p")];
-  if(!p){ card.innerHTML="<h2>Link inválido</h2>"; }
-  else{
+  if(!p){
+    card.innerHTML="<h2>Link inválido</h2>";
+  } else {
     card.innerHTML=`
-      <h2>Área segura</h2>
+      <h2>🔐 Área Segura</h2>
       <input id="senha" placeholder="Senha">
-      <button id="ver">Ver</button>
-      <div id="res"></div>`;
-    ver.onclick=async()=>{
-      if(senha.value!==p.senha){alert("Senha errada");return;}
-      p.visto=true;
-      await setDoc(doc(db,"sorteios",params.get("s")),snap.data());
-      res.innerHTML="<h2>🎉 "+p.resultado+"</h2>";
-    }
+      <button id="ver">Ver resultado</button>
+      <div id="res"></div>
+    `;
+    ver.onclick = async ()=>{
+      if(senha.value !== p.senha){ alert("Senha incorreta"); return; }
+      p.visto = true;
+      await setDoc(doc(db,"sorteios",params.get("s")), dados);
+      res.innerHTML = `<h2>🎉 ${p.resultado}</h2>`;
+    };
   }
+}
+
+// 📥 EXCEL COMPLETO
+if(params.get("excel") && params.get("admin") === ADMIN){
+  const snap = await getDoc(doc(db,"sorteios",params.get("excel")));
+  const dados = snap.data();
+
+  const linhas = [["Nome","Email","Quem Tirou","Senha","Link","Já viu"]];
+  for(let id in dados){
+    const p = dados[id];
+    const link = `${location.origin}${location.pathname}?s=${params.get("excel")}&p=${id}`;
+    linhas.push([
+      p.nome,
+      p.email,
+      p.resultado,
+      p.senha,
+      link,
+      p.visto ? "SIM" : "NÃO"
+    ]);
+  }
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(linhas),"Sorteio");
+  XLSX.writeFile(wb,"amigo-oculto-completo.xlsx");
 }
 </script>
 </body>
