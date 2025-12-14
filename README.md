@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
@@ -51,41 +50,59 @@ button{
   border-radius:10px;
 }
 a{color:#0f7a3a;font-weight:bold;text-decoration:none}
+.small{font-size:13px;color:#555}
 </style>
 </head>
 
 <body>
 <div class="card" id="card">
+
 <h2>🎄 Amigo Oculto</h2>
 
 <div id="setup">
 <textarea id="dados" placeholder="Nome,email@email.com (um por linha)"></textarea>
+
 <button onclick="criarSorteio()">🎁 Criar Sorteio</button>
 <button onclick="mostrarHistorico()">🗂️ Histórico</button>
 <button onclick="exportarExcel()">📥 Baixar Excel</button>
+
+<p class="small">* Exportação protegida por senha</p>
 </div>
 
 <div id="links"></div>
+
 </div>
 
 <script>
 const ADMIN = "clx";
 let sorteioAtual = null;
 
-// ===== SHUFFLE SEGURO =====
+/* ===== URL SEGURA (iPhone FIX) ===== */
+function baseURL(){
+  return window.location.href.split("?")[0];
+}
+
+/* ===== SHUFFLE REAL ===== */
 function shuffle(arr){
-  let a=[...arr];
+  let a = [...arr];
   for(let i=a.length-1;i>0;i--){
-    const j=Math.floor(Math.random()*(i+1));
+    const j = Math.floor(Math.random()*(i+1));
     [a[i],a[j]]=[a[j],a[i]];
   }
   return a;
 }
 
-// ===== CRIAR SORTEIO =====
+/* ===== CRIAR SORTEIO ===== */
 function criarSorteio(){
-  const linhas = dados.value.split("\n").map(l=>l.trim()).filter(l=>l);
-  if(linhas.length < 2) return alert("Mínimo 2 participantes");
+  const linhas = document.getElementById("dados").value
+    .split("\n")
+    .map(l=>l.trim())
+    .filter(l=>l);
+
+  if(linhas.length < 2){
+    alert("Mínimo 2 participantes");
+    return;
+  }
 
   const base = linhas.map(l=>{
     const [nome,email] = l.split(",");
@@ -93,13 +110,14 @@ function criarSorteio(){
     return {nome:nome.trim(), email:email.trim()};
   }).filter(Boolean);
 
-  let nomes = base.map(p=>p.nome);
+  const nomes = base.map(p=>p.nome);
   let sorteados;
+
   do{
     sorteados = shuffle(nomes);
-  }while(!nomes.every((n,i)=>n!==sorteados[i]));
+  }while(!nomes.every((n,i)=>n !== sorteados[i]));
 
-  let participantes = {};
+  const participantes = {};
   base.forEach((p,i)=>{
     const id = crypto.randomUUID();
     participantes[id] = {
@@ -114,21 +132,22 @@ function criarSorteio(){
   sorteioAtual = crypto.randomUUID();
   localStorage.setItem("sorteio_"+sorteioAtual, JSON.stringify(participantes));
 
-  const hist = JSON.parse(localStorage.getItem("historico"))||[];
+  const hist = JSON.parse(localStorage.getItem("historico")) || [];
   hist.push({id:sorteioAtual, data:new Date().toLocaleString(), participantes});
   localStorage.setItem("historico", JSON.stringify(hist));
 
   renderizarLinks(sorteioAtual, participantes);
 }
 
-// ===== LINKS + EMAIL =====
+/* ===== LINKS / EMAIL ===== */
 function renderizarLinks(id, participantes){
-  setup.style.display="none";
-  links.innerHTML = `<button onclick="exportarExcel()">📥 Baixar Excel deste sorteio</button>`;
+  document.getElementById("setup").style.display="none";
+  const links = document.getElementById("links");
+  links.innerHTML="";
 
   for(let pid in participantes){
     const p = participantes[pid];
-    const link = location.origin + location.pathname + `?s=${id}&p=${pid}`;
+    const link = baseURL() + `?s=${id}&p=${pid}`;
 
     const assunto = "🎄 Seu Amigo Oculto chegou! 🎁✨";
     const corpo = `Olá ${p.nome}! 🎅✨
@@ -140,9 +159,8 @@ Que alegria ter você participando do nosso Amigo Oculto! 🎁❤️
 👉 Clique no link abaixo para descobrir quem você tirou:
 ${link}
 
-🤫 Guarde segredo! O mistério faz parte da magia.
-
-Desejamos um Natal cheio de paz, amor e união 🎄💝`;
+🤫 Guarde segredo!
+Feliz Natal 🎄💝`;
 
     const mailto = `mailto:${p.email}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
 
@@ -150,54 +168,68 @@ Desejamos um Natal cheio de paz, amor e união 🎄💝`;
       <div class="link">
         <strong>${p.nome}</strong><br>
         📧 ${p.email}<br><br>
-        <a href="${mailto}">📨 Enviar E-mail</a>
+        <a href="${mailto}">📨 Enviar por e-mail</a>
       </div>
     `;
   }
 }
 
-// ===== HISTÓRICO =====
+/* ===== HISTÓRICO ===== */
 function mostrarHistorico(){
-  if(prompt("Senha do administrador:")!==ADMIN) return alert("Senha incorreta");
-  const hist = JSON.parse(localStorage.getItem("historico"))||[];
-  if(!hist.length) return alert("Nenhum histórico");
+  if(prompt("Senha do administrador:") !== ADMIN){
+    alert("Senha incorreta");
+    return;
+  }
 
-  let lista = hist.map((h,i)=>`${i+1} - ${h.data}`).join("\n");
-  const idx = parseInt(prompt(lista+"\nDigite o número:"))-1;
+  const hist = JSON.parse(localStorage.getItem("historico")) || [];
+  if(!hist.length){
+    alert("Nenhum histórico");
+    return;
+  }
+
+  let txt = hist.map((h,i)=>`${i+1} - ${h.data}`).join("\n");
+  const idx = parseInt(prompt(txt+"\nEscolha o número:")) - 1;
   if(!hist[idx]) return;
 
   sorteioAtual = hist[idx].id;
   renderizarLinks(sorteioAtual, hist[idx].participantes);
 }
 
-// ===== EXCEL =====
+/* ===== EXCEL ===== */
 function exportarExcel(){
-  if(prompt("Senha do administrador:")!==ADMIN) return alert("Senha incorreta");
-  if(!sorteioAtual) return alert("Nenhum sorteio ativo");
+  if(prompt("Senha do administrador:") !== ADMIN){
+    alert("Senha incorreta");
+    return;
+  }
+
+  if(!sorteioAtual){
+    alert("Nenhum sorteio selecionado");
+    return;
+  }
 
   const dados = JSON.parse(localStorage.getItem("sorteio_"+sorteioAtual));
-  const linhas=[["Nome","Email","Amigo Oculto","Senha","Visualizado","Link"]];
+  const linhas = [["Nome","Email","Amigo Oculto","Senha","Visualizado","Link"]];
 
   for(let pid in dados){
-    const p=dados[pid];
-    const link = location.origin + location.pathname + `?s=${sorteioAtual}&p=${pid}`;
+    const p = dados[pid];
+    const link = baseURL() + `?s=${sorteioAtual}&p=${pid}`;
     linhas.push([p.nome,p.email,p.resultado,p.senha,p.visto?"Sim":"Não",link]);
   }
 
-  const wb=XLSX.utils.book_new();
-  const ws=XLSX.utils.aoa_to_sheet(linhas);
-  XLSX.utils.book_append_sheet(wb,ws,"Sorteio");
-  XLSX.writeFile(wb,"amigo-oculto.xlsx");
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(linhas);
+  XLSX.utils.book_append_sheet(wb, ws, "Sorteio");
+  XLSX.writeFile(wb, "amigo-oculto.xlsx");
 }
 
-// ===== PARTICIPANTE =====
-const params=new URLSearchParams(location.search);
+/* ===== PARTICIPANTE ===== */
+const params = new URLSearchParams(window.location.search);
 if(params.get("s") && params.get("p")){
-  const dados=JSON.parse(localStorage.getItem("sorteio_"+params.get("s")));
-  const p=dados?.[params.get("p")];
+  const dados = JSON.parse(localStorage.getItem("sorteio_"+params.get("s")));
+  const p = dados?.[params.get("p")];
 
   if(!p){
-    card.innerHTML="<h2>❌ Link inválido</h2>";
+    card.innerHTML="<h2>Link inválido</h2>";
   }else if(p.visto){
     card.innerHTML="<h2>⛔ Já visualizado</h2>";
   }else{
@@ -208,14 +240,18 @@ if(params.get("s") && params.get("p")){
       <button onclick="ver()">Ver Resultado</button>
       <div id="res"></div>
     `;
-    window.ver=()=>{
-      if(senha.value!==p.senha) return alert("Senha incorreta");
-      p.visto=true;
-      localStorage.setItem("sorteio_"+params.get("s"),JSON.stringify(dados));
-      res.innerHTML=`<h3>🎉 Você tirou:</h3><h2>${p.resultado}</h2>`;
+    window.ver = ()=>{
+      if(senha.value !== p.senha){
+        alert("Senha incorreta");
+        return;
+      }
+      p.visto = true;
+      localStorage.setItem("sorteio_"+params.get("s"), JSON.stringify(dados));
+      res.innerHTML = `<h3>🎉 Você tirou:</h3><h2>${p.resultado}</h2>`;
     }
   }
 }
 </script>
+
 </body>
 </html>
