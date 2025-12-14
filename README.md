@@ -19,7 +19,7 @@ body{
 }
 .card{
   background:#fff;
-  max-width:480px;
+  max-width:500px;
   width:100%;
   padding:20px;
   border-radius:18px;
@@ -44,7 +44,8 @@ button{
   font-size:16px;
   cursor:pointer;
 }
-.excel{ background:#2e7d32 }
+.excel{background:#2e7d32}
+.hist{background:#1565c0}
 .link{
   background:#f5f5f5;
   padding:12px;
@@ -61,6 +62,7 @@ button{
 <div id="setup">
 <textarea id="dados" placeholder="Nome,email@email.com (um por linha)"></textarea>
 <button onclick="criarSorteio()">🎁 Criar Sorteio</button>
+<button class="hist" onclick="mostrarHistorico()">🗂️ Histórico (Admin)</button>
 </div>
 
 <div id="links"></div>
@@ -68,7 +70,10 @@ button{
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {
+  getFirestore, doc, setDoc, getDoc,
+  getDocs, collection
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCgV3hmEfZX8dzPMxNoFiC9YURNboJkWf4",
@@ -119,6 +124,10 @@ window.criarSorteio = async ()=>{
 
   const sorteioID = crypto.randomUUID();
   await setDoc(doc(db,"sorteios",sorteioID), participantes);
+  await setDoc(doc(db,"historico",sorteioID), {
+    data: new Date().toLocaleString()
+  });
+
   renderizarLinks(sorteioID, participantes);
 };
 
@@ -139,7 +148,7 @@ function renderizarLinks(id, part){
     const p = part[pid];
     const linkPessoa = `${location.origin}${location.pathname}?s=${id}&p=${pid}`;
 
-    const mensagem = `
+    const msg = `
 🎄 Olá ${p.nome}!
 
 O sorteio do Amigo Oculto já aconteceu 🎁
@@ -150,18 +159,45 @@ ${linkPessoa}
 🔐 Senha: ${p.senha}
 
 Guarde segredo 🤫
+Boas festas! 🎅
 `;
 
     links.innerHTML += `
       <div class="link">
         <b>${p.nome}</b><br>${p.email}<br><br>
-        <a href="mailto:${p.email}?subject=🎄 Amigo Oculto&body=${encodeURIComponent(mensagem)}">
+        <a href="mailto:${p.email}?subject=🎄 Amigo Oculto&body=${encodeURIComponent(msg)}">
           <button>📧 Enviar e-mail</button>
         </a>
       </div>
     `;
   }
 }
+
+// 🗂️ HISTÓRICO
+window.mostrarHistorico = async ()=>{
+  if(prompt("Senha do admin") !== ADMIN) return;
+
+  const snap = await getDocs(collection(db,"historico"));
+  if(snap.empty){ alert("Nenhum sorteio encontrado"); return; }
+
+  let lista = [];
+  snap.forEach(d=>{
+    lista.push(`${d.id} — ${d.data().data}`);
+  });
+
+  const escolha = prompt(
+    "Escolha o ID do sorteio:\n\n" +
+    lista.join("\n\n")
+  );
+
+  if(!escolha) return;
+
+  const id = escolha.split(" — ")[0];
+  const sorteio = await getDoc(doc(db,"sorteios",id));
+  if(!sorteio.exists()){ alert("Sorteio inválido"); return; }
+
+  renderizarLinks(id, sorteio.data());
+};
 
 // 👤 PARTICIPANTE
 const params = new URLSearchParams(location.search);
@@ -172,7 +208,7 @@ if(params.get("s") && params.get("p")){
 
   if(!p){
     card.innerHTML="<h2>Link inválido</h2>";
-  } else {
+  }else{
     card.innerHTML=`
       <h2>🔐 Área Segura</h2>
       <input id="senha" placeholder="Senha">
