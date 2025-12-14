@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
@@ -18,7 +19,7 @@ body{
 }
 .card{
   background:#fff;
-  max-width:500px;
+  max-width:520px;
   width:100%;
   padding:20px;
   border-radius:18px;
@@ -85,20 +86,40 @@ const db = getFirestore(app);
 
 const ADMIN = "clx";
 
-// 🔀 SORTEIO ALEATÓRIO
-function shuffle(arr){
-  let a=[...arr];
-  for(let i=a.length-1;i>0;i--){
-    const j=Math.floor(Math.random()*(i+1));
-    [a[i],a[j]]=[a[j],a[i]];
+/* 🔀 SORTEIO ALEATÓRIO
+   - não tira a si
+   - não tira vizinho (cima/baixo)
+*/
+function sortearSeguro(nomes){
+  let tentativas = 0;
+  while(tentativas < 5000){
+    tentativas++;
+    const sorteados = [...nomes].sort(()=>Math.random()-0.5);
+    let valido = true;
+
+    for(let i=0;i<nomes.length;i++){
+      if(
+        sorteados[i] === nomes[i] ||             // ele mesmo
+        sorteados[i] === nomes[i-1] ||           // de cima
+        sorteados[i] === nomes[i+1]              // de baixo
+      ){
+        valido = false;
+        break;
+      }
+    }
+    if(valido) return sorteados;
   }
-  return a;
+  alert("Não foi possível sortear com essas regras 😕");
+  return null;
 }
 
 // 🎁 CRIAR SORTEIO
 window.criarSorteio = async ()=>{
   const linhas = dados.value.split("\n").map(l=>l.trim()).filter(Boolean);
-  if(linhas.length < 2){ alert("Mínimo 2 participantes"); return; }
+  if(linhas.length < 3){
+    alert("Mínimo 3 participantes para essa regra");
+    return;
+  }
 
   const base = linhas.map(l=>{
     const [nome,email]=l.split(",");
@@ -106,9 +127,8 @@ window.criarSorteio = async ()=>{
   });
 
   const nomes = base.map(p=>p.nome);
-  let sorteados;
-  do { sorteados = shuffle(nomes); }
-  while(!nomes.every((n,i)=>n !== sorteados[i]));
+  const sorteados = sortearSeguro(nomes);
+  if(!sorteados) return;
 
   const participantes = {};
   base.forEach((p,i)=>{
@@ -138,7 +158,7 @@ function renderizarLinks(id, part){
   const linkExcel = `${location.origin}${location.pathname}?excel=${id}&admin=${ADMIN}`;
 
   links.innerHTML += `
-    <button class="excel" onclick="window.open('${linkExcel}')">
+    <button class="excel" onclick="window.open('${linkExcel}','_blank')">
       📥 Baixar Excel Completo
     </button>
   `;
@@ -148,23 +168,23 @@ function renderizarLinks(id, part){
     const linkPessoa = `${location.origin}${location.pathname}?s=${id}&p=${pid}`;
 
     const msg = `
-🎄 Olá ${p.nome}!
+🎄✨ Olá ${p.nome}!
 
-O sorteio do Amigo Oculto já aconteceu 🎁
+O sorteio do *Amigo Oculto* já foi realizado 🎁💝
 
-👉 Descubra quem você tirou:
+👉 Acesse seu link exclusivo:
 ${linkPessoa}
 
 🔐 Senha: ${p.senha}
 
 Guarde segredo 🤫
-Boas festas! 🎅
+Boas festas! 🎅🎄
 `;
 
     links.innerHTML += `
       <div class="link">
         <b>${p.nome}</b><br>${p.email}<br><br>
-        <a href="mailto:${p.email}?subject=🎄 Amigo Oculto&body=${encodeURIComponent(msg)}">
+        <a href="mailto:${p.email}?subject=🎄 Seu Amigo Oculto Chegou!&body=${encodeURIComponent(msg)}">
           <button>📧 Enviar e-mail</button>
         </a>
       </div>
@@ -172,30 +192,26 @@ Boas festas! 🎅
   }
 }
 
-// 🗂️ HISTÓRICO
+// 🗂️ HISTÓRICO POR NÚMERO
 window.mostrarHistorico = async ()=>{
   if(prompt("Senha do admin") !== ADMIN) return;
 
   const snap = await getDocs(collection(db,"historico"));
   if(snap.empty){ alert("Nenhum sorteio encontrado"); return; }
 
-  let lista = [];
-  snap.forEach(d=>{
-    lista.push(`${d.id} — ${d.data().data}`);
+  const lista = [];
+  snap.forEach(d=>lista.push({id:d.id, data:d.data().data}));
+
+  let texto = "Escolha o número do sorteio:\n\n";
+  lista.forEach((s,i)=>{
+    texto += `${i+1} - ${s.data}\n`;
   });
 
-  const escolha = prompt(
-    "Escolha o ID do sorteio:\n\n" +
-    lista.join("\n\n")
-  );
+  const escolha = parseInt(prompt(texto));
+  if(!escolha || !lista[escolha-1]) return;
 
-  if(!escolha) return;
-
-  const id = escolha.split(" — ")[0];
-  const sorteio = await getDoc(doc(db,"sorteios",id));
-  if(!sorteio.exists()){ alert("Sorteio inválido"); return; }
-
-  renderizarLinks(id, sorteio.data());
+  const sorteio = await getDoc(doc(db,"sorteios",lista[escolha-1].id));
+  renderizarLinks(lista[escolha-1].id, sorteio.data());
 };
 
 // 👤 PARTICIPANTE
@@ -207,7 +223,7 @@ if(params.get("s") && params.get("p")){
 
   if(!p){
     card.innerHTML="<h2>Link inválido</h2>";
-  }else{
+  } else {
     card.innerHTML=`
       <h2>🔐 Área Segura</h2>
       <input id="senha" placeholder="Senha">
